@@ -1,0 +1,70 @@
+---
+- name: gather conda info
+  command: '{{ conda_env_conda_bin }} info --json'
+  register: conda_info
+  changed_when: false
+
+- name: set conda_info fact
+  set_fact:
+    conda_info: '{{ conda_info.stdout | from_json }}'
+
+- name: mkdir {{ conda_env_env_ymls }}
+  become: '{{ conda_env_escalate }}'
+  become_user: root
+  file:
+    path: '{{ conda_env_env_ymls }}'
+    state: directory
+    mode: 0755
+
+- name: injecting/templatizing {{ conda_env_fq_dest_environment }}...
+  become: '{{ conda_env_escalate }}'
+  become_user: root
+  template:
+    src: '{{ conda_env_environment }}'
+    dest: '{{ conda_env_fq_dest_environment }}'
+    mode: 0644
+
+- name: '{{ conda_env_action_command }} the conda environment'
+  become: '{{ conda_env_escalate }}'
+  become_user: root
+  command: '{{ conda_env_conda_bin }} env {{ conda_env_action_command }} --file={{ conda_env_fq_dest_environment }} -q {% if conda_env_prefix == None %}-n {{ conda_env_name }}{% else %}-p {{conda_env_prefix}}{% endif %}'
+  args:
+    # pretend task creates nothing to always run when updating an environment. In general, the first directory
+    # is where conda creates new environments.
+    creates: "{% if conda_env_action_command == 'update' %}{% else %}{{ conda_info.envs_dirs | first }}/{{ conda_env_name }}{% endif %}"
+
+- name: addl packages...
+  become: '{{ conda_env_escalate }}'
+  become_user: root
+  when: conda_env_addl_pkgs is defined
+  with_items: '{{  conda_env_addl_pkgs | default([])  }}'
+  command: '{{ conda_env_conda_bin }} install -n {{ conda_env_name }} -yq -c {{  item.c | default("defaults")  }} {{  item.p  }}'
+
+- name: '{{ conda_env_conda_bin }} clean -ayq'
+  become: '{{ conda_env_escalate }}'
+  become_user: root
+  when: conda_env_cleanup
+  command: '{{ conda_env_conda_bin }} clean -ayq'
+
+- block:
+    - name: Ansible delete file glob
+      find:
+        paths: /etc/profile.d/
+        patterns: conda-env-activate*
+      register: files_to_delete
+    - name: Ansible remove file glob
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ files_to_delete.files }}"
+    - name: setting up to activate in login shell...
+      with_items:
+        - d: /etc/profile.d
+          f: conda-env-activate-{{ conda_env_name }}.sh
+      template:
+        src: activate.sh.j2
+        dest: '{{ item.d }}/{{ item.f }}'
+        mode: '{{ item.m|default("0644") }}'
+  become: '{{ conda_env_escalate }}'
+  become_user: root
+  when: conda_env_escalate and conda_env_activate_for_login_shell

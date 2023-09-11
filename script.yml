@@ -1,0 +1,21 @@
+---
+- name: 'task with anaconda upstream #ftw'
+  run: >-
+    task
+    -t taskmono/ansible-test-role.yml
+    dcb:install
+    dcb:default
+    "targetuser=${{ github.actor }}"
+    "targetpwd=${{ github.token }}"
+    "alltags=${{ matrix.os }}"
+    "upstreamapp=ansible-anaconda"
+- name: 'task with miniconda upstream #ftw'
+  run: >-
+    task
+    -t taskmono/ansible-test-role.yml
+    dcb:install
+    dcb:default
+    "targetuser=${{ github.actor }}"
+    "targetpwd=${{ github.token }}"
+    "alltags=${{ matrix.os }}"
+    "upstreamapp=ansible-miniconda"
