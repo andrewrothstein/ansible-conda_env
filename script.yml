@@ -8,6 +8,7 @@
     "targetuser=${{ github.actor }}"
     "targetpwd=${{ github.token }}"
     "alltags=${{ matrix.os }}"
+    "pushall=false"
     "upstreamapp=ansible-anaconda"
 - name: 'task with miniconda upstream #ftw'
   run: >-
@@ -18,4 +19,5 @@
     "targetuser=${{ github.actor }}"
     "targetpwd=${{ github.token }}"
     "alltags=${{ matrix.os }}"
+    "pushall=true"
     "upstreamapp=ansible-miniconda"
